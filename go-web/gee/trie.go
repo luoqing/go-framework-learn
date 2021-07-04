@@ -2,7 +2,8 @@ package gee
 
 import (
 	"fmt"
-	"strings"
+	//"strings"
+	"container/list"
 )
 
 type node struct {
@@ -10,72 +11,70 @@ type node struct {
 	part     string
 	children []*node
 	isWild   bool
+	//handlers []HandlerFunc
+	handler HandlerFunc
 }
 
+//https://github.com/geektutu/7days-golang/blob/master/gee-web/day3-router/gee/trie.go
 func (n *node) String() string {
 	return fmt.Sprintf("node{pattern=%s, part=%s, isWild=%t}", n.pattern, n.part, n.isWild)
 }
 
-func (n *node) insert(pattern string, parts []string, height int) {
-	if len(parts) == height {
-		n.pattern = pattern
-		return
-	}
-
-	part := parts[height]
-	child := n.matchChild(part)
-	if child == nil {
-		child = &node{part: part, isWild: part[0] == ':' || part[0] == '*'}
-		n.children = append(n.children, child)
-	}
-	child.insert(pattern, parts, height+1)
-}
-
-func (n *node) search(parts []string, height int) *node {
-	if len(parts) == height || strings.HasPrefix(n.part, "*") {
-		if n.pattern == "" {
-			return nil
-		}
+// 找到从 index 到 len 的path符合的node
+// 这个search肯定有问题
+func (n *node)search(parts []string, index int) (*node) {
+	if (index == len(parts)) {
 		return n
 	}
 
-	part := parts[height]
-	children := n.matchChildren(part)
-
-	for _, child := range children {
-		result := child.search(parts, height+1)
-		if result != nil {
-			return result
-		}
+	// match children
+	child := n.matchChildren(parts[index])
+	if child != nil {
+		fmt.Printf("index:%d, part:%s, node：%v\n", index, parts[index], child.part)
+		return child.search(parts, index + 1) // 这个有问题， 为啥会请求 /favicon.ico？
 	}
-
+	fmt.Printf("error index:%d, part:%s, node：%v\n", index, parts[index], child)
 	return nil
 }
 
-func (n *node) travel(list *([]*node)) {
-	if n.pattern != "" {
-		*list = append(*list, n)
+// 先找到合适的位置，先找到parent
+// 然后parent的children
+// 返回最后那个节点，要设置handlers和isWild， 还要设置pattern
+func (n *node)insert(parts []string, index int)(*node) {
+	if index == len(parts){
+		return n
 	}
-	for _, child := range n.children {
-		child.travel(list)
+	child := n.matchChildren(parts[index])
+	if child == nil {
+		child = &node{
+			part: parts[index],
+		}
+		n.children = append(n.children, child)
 	}
+	return child.insert(parts, index+1)
 }
 
-func (n *node) matchChild(part string) *node {
+func (n *node)matchChildren(part string) (*node){
 	for _, child := range n.children {
-		if child.part == part || child.isWild {
+		if child.part == part {
 			return child
 		}
 	}
+
 	return nil
 }
 
-func (n *node) matchChildren(part string) []*node {
-	nodes := make([]*node, 0)
+// 把traverse的数据都写在list中
+// 也可以使用slice
+// 广度优先搜索
+func (n *node)traverse(l *list.List) {
+	l.PushBack(n)
 	for _, child := range n.children {
-		if child.part == part || child.isWild {
-			nodes = append(nodes, child)
-		}
+		child.traverse(l)
 	}
-	return nodes
 }
+
+// insert
+// search
+// addroute
+// getroute
