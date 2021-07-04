@@ -5,6 +5,7 @@ import(
 	"net/http"
 	"fmt"
 	"encoding/json"
+	"net/url"
 )
 
 type Context struct {
@@ -15,6 +16,7 @@ type Context struct {
 	Method string
 	// response info
 	StatusCode int
+	Params url.Values
 	handlers []HandlerFunc
 	index int
 }
@@ -73,6 +75,12 @@ func (c *Context) JSON(code int, obj interface{}) {
 func (c *Context) Data(code int, data []byte) {
 	c.Status(code)
 	c.Writer.Write(data)
+}
+
+func (c *Context) Fail(code int, msg string) {
+	c.SetHeader("Content-Type", "text/plain")
+	c.Status(code)
+	c.Writer.Write([]byte(msg))
 }
 
 func (c *Context) HTML(code int, html string) {
