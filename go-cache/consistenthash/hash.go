@@ -6,6 +6,7 @@ import (
 	"hash/crc32"
 	"sort"
 	"errors"
+	"strings"
 )
 
 // 问题
@@ -126,7 +127,9 @@ func (c *ConsistentHash)Get(key string) (string, error){
 	})
 	hashKey := c.hashKeys[index % len(c.hashKeys)]
 	if node, ok := c.hashMap[hashKey]; ok {
-		return node, nil
+		tmp := strings.Split(node, "_")
+		ip := tmp[0]
+		return ip, nil
 	} else {
 		return "", errors.New("ERROR HASH MAP")
 	}

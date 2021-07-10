@@ -1,12 +1,12 @@
 package lru
 import (
 	"container/list"
-	"fmt"
+	//"fmt"
 	"errors"
 )
 
 // 并发安全
-// https://github.com/golang/groupcache/blob/master/lru/lru.go
+// https://github.com/golang/groupcache/blob/master/Cache/Cache.go
 
 // least recently use
 // cache
@@ -14,7 +14,7 @@ import (
 // Cache
 type Key interface{}
 
-type LRU struct {
+type Cache struct {
 	size int
 	len int
 	htable map[Key]*list.Element
@@ -25,8 +25,8 @@ type Entry struct {
 	value interface{}
 }
 
-func New(maxSize int) *LRU{
-	return &LRU{
+func New(maxSize int) *Cache{
+	return &Cache{
 		size:maxSize,
 		len:0,
 		htable:make(map[Key]*list.Element),
@@ -34,17 +34,17 @@ func New(maxSize int) *LRU{
 	}
 }
 
-func (r *LRU)Get(key string) (interface{}, error) {
+func (r *Cache)Get(key string) (interface{}, error) {
 	if elem, ok := r.htable[key]; ok {
 		r.queue.MoveToFront(elem)
-		fmt.Printf("key:%s value:%v\n", key, elem.Value)
+		//fmt.Printf("key:%s value:%v\n", key, elem.Value)
 		return elem.Value.(*Entry).value, nil
 	}
-	fmt.Printf("key:%s NOT found!\n", key)
+	//fmt.Printf("key:%s NOT found!\n", key)
 	return nil, errors.New("NOT found!")
 }
 
-func (r *LRU)Set(key Key, v interface{}) error{
+func (r *Cache)Set(key Key, v interface{}) error{
 	n := &Entry{
 		key: key,
 		value: v,
@@ -66,7 +66,7 @@ func (r *LRU)Set(key Key, v interface{}) error{
 	return nil
 }
 
-func (r *LRU)RemoveOldest() {
+func (r *Cache)RemoveOldest() {
 	elem := r.queue.Back()
 	n := elem.Value.(*Entry)
 	
@@ -75,11 +75,11 @@ func (r *LRU)RemoveOldest() {
 	// hashtable
 }
 
-func (r *LRU)Len() int{
+func (r *Cache)Len() int{
 	return r.len
 }
 
 // 重置就行了
-func (r *LRU)Clear(){
+func (r *Cache)Clear(){
 }
 
