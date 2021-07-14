@@ -3,6 +3,7 @@ import (
 	"container/list"
 	//"fmt"
 	"errors"
+	"sync"
 )
 
 // 并发安全
@@ -19,6 +20,7 @@ type Cache struct {
 	len int
 	htable map[Key]*list.Element
 	queue *list.List
+	sync.RWMutex
 }
 type Entry struct {
 	key Key
@@ -35,6 +37,8 @@ func New(maxSize int) *Cache{
 }
 
 func (r *Cache)Get(key string) (interface{}, error) {
+	r.Lock()
+	defer r.Unlock()
 	if elem, ok := r.htable[key]; ok {
 		r.queue.MoveToFront(elem)
 		//fmt.Printf("key:%s value:%v\n", key, elem.Value)
@@ -45,6 +49,8 @@ func (r *Cache)Get(key string) (interface{}, error) {
 }
 
 func (r *Cache)Set(key Key, v interface{}) error{
+	r.Lock()
+	defer r.Unlock()
 	n := &Entry{
 		key: key,
 		value: v,
@@ -66,6 +72,7 @@ func (r *Cache)Set(key Key, v interface{}) error{
 	return nil
 }
 
+// 这个地方需要加锁吗？
 func (r *Cache)RemoveOldest() {
 	elem := r.queue.Back()
 	n := elem.Value.(*Entry)
