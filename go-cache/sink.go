@@ -3,6 +3,7 @@ import(
 	"fmt"
 )
 
+// 也测试下FileSinker
 type Sinker interface {
 	Set(key string, value []byte) error
 
