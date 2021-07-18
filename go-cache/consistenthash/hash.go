@@ -27,7 +27,7 @@ type struct Node struct {
 	weight double // 按权重初始化进行
 }*/
 // IsEmpty() bool
-// 研究下有哪些hash 函数，一致性hash如何保证不碰撞
+// todo:研究下有哪些hash 函数，一致性hash如何保证不碰撞
 
 type HashHandler func(data []byte) uint32
 type ConsistentHash struct {
@@ -79,7 +79,7 @@ func (c *ConsistentHash)Add(ips... string) {
 	sort.Slice(c.hashKeys, func(i, j int) bool {
 		return c.hashKeys[i] < c.hashKeys[j]
 	})
-	fmt.Println(c.hashKeys)
+	//fmt.Println(c.hashKeys)
 
 }
 

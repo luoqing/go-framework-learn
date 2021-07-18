@@ -20,13 +20,6 @@ import (
 	"io"
 )
 
-/*
-type PeerPicker interface {
-	func PickPeer(key string) (string error) {
-
-	}
-}*/
-
 // 将sinker(map) + peerPicker(consistenthash) + peerGetter(http) 集中在一起，这种可以实现，但是不方便扩展
 type Storage struct{
 	data map[string]string // sinker

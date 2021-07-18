@@ -95,13 +95,13 @@ func (g *Group)getFromPeer(key string) ([]byte, error){
 }
 
 func (g *Group)Set(key string, value []byte) (error){
-	// 先在localcache上查，然后再getFromPeer
+	// 先在localcache上设置，然后再getFromPeer
 	err := g.setFromCache(key, value)
 	if err != nil {
 		return err
 	}
 	err = g.setFromPeer(key, value)
-	if err != nil {
+	if err == nil {
 		return err
 	}
 	return g.storage.Set(key, value)

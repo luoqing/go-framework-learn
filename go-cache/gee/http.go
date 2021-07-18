@@ -35,10 +35,21 @@ func NewHttpPool(self string, replicas int, ips []string) *HttpPool{
 	return p
 }
 
-/*
-func (p *HttpPool)Set(peers...string) {
+func (p *HttpPool)Run() error {
+	fmt.Printf("start server：%s\n", p.self)
+	err := http.ListenAndServe(p.self, p)
+	if err != nil {
+		fmt.Println("ListenAndServe error: ", err.Error())
+		return err
+	}
+	return nil
+}
+
+// 如果检测到有ips有变更，可以重置, 也可以选择定向remove
+func (p *HttpPool)ReSet(replicas int, peers...string) {
+	p.peersHash = consistenthash.New(replicas, nil)
 	p.peersHash.Add(peers...)
-}*/
+}
 
 func (p *HttpPool)PickPeer(key string) (PeerGetter, error) {
 	// 选择出一台服务器
@@ -47,6 +58,7 @@ func (p *HttpPool)PickPeer(key string) (PeerGetter, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("ip:%s self:%s\n", ip, p.self)
 	if ip == p.self {
 		return nil, errors.New("local")
 	}
@@ -60,7 +72,7 @@ func (p *HttpPool)PickPeer(key string) (PeerGetter, error) {
 
 func (g *HttpGetter)Get(group, key string)([]byte, error){
 	// 根据server和path，拼出url，然后请求获取到数据
-	baseURL := fmt.Sprintf("%s%s", g.server, g.basePath)
+	baseURL := fmt.Sprintf("http://%s%s", g.server, g.basePath)
 	u := fmt.Sprintf(
 		"%v/get/%v/%v",
 		baseURL,
@@ -85,9 +97,10 @@ func (g *HttpGetter)Get(group, key string)([]byte, error){
 	return bytes, nil
 }
 
+
 func (g *HttpGetter)Set(group, key string, value []byte)(error){
 	// 根据server和path，拼出url，然后请求获取到数据
-	baseURL := fmt.Sprintf("%s%s", g.server, g.basePath)
+	baseURL := fmt.Sprintf("http://%s%s", g.server, g.basePath)
 	u := fmt.Sprintf(
 		"%v/set/%v/%v",
 		baseURL,
@@ -110,7 +123,8 @@ func (g *HttpGetter)Set(group, key string, value []byte)(error){
 }
 
 func (p* HttpPool)apiGet(w http.ResponseWriter, r *http.Request) {
-	basePath := "/api/get"
+	basePath := "/api/get/"
+	//fmt.Println(r.URL.Path)
 	parts := strings.SplitN(r.URL.Path[len(basePath):], "/", 2)
 	if len(parts) != 2 {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -119,6 +133,8 @@ func (p* HttpPool)apiGet(w http.ResponseWriter, r *http.Request) {
 
 	groupName := parts[0]
 	key := parts[1]
+	//fmt.Println(string(groupName))
+	//fmt.Println(string(key))
 
 	group := GetGroup(groupName)
 	if group == nil {
@@ -127,18 +143,20 @@ func (p* HttpPool)apiGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	view, err := group.Get(key)
+	fmt.Println(string(view))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/octet-stream")
+	//fmt.Fprintln(w, string(view))
 	w.Write(view)
 }
 
 
 func (p* HttpPool)apiSet(w http.ResponseWriter, r *http.Request) {
-	basePath := "/api/set"
+	basePath := "/api/set/"
 	parts := strings.SplitN(r.URL.Path[len(basePath):], "/", 2)
 	if len(parts) != 2 {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -154,14 +172,17 @@ func (p* HttpPool)apiSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
+	
 	value, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "value body error ", http.StatusInternalServerError)
 		return
 	}
+	//fmt.Printf("value is %s\n", string(value))
 	
 	err = group.Set(key, value)
 	if err != nil {
+		fmt.Printf("group set err %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -182,14 +203,15 @@ func (p *HttpPool)ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// /api/set
 	// /api/get
 	path := req.URL.Path
-	
-	switch path {
-	case "/api/get":
+	if strings.HasPrefix(path, "/api/get") {
 		p.apiGet(w, req)
-	case "/api/set":
+	} else if strings.HasPrefix(path, "/api/set") {
 		p.apiSet(w, req)
+	} else {
+		http.Error(w, "no such method: " + path, http.StatusNotFound)
 	}
-
+	
+	
 	// 根据不同路由获取不同的数据
 	// 查询的逻辑---分布式查询和本地查询能统一吗
 	// 获取group，key参数
@@ -199,6 +221,5 @@ func (p *HttpPool)ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// 获取group，key，value参数
 	// 根据group.set(key，value)
 	// 注意自己
-
 }
 
