@@ -1,0 +1,30 @@
+syntax = "proto3";
+option go_package = "./cacher";
+package cacher;
+
+service Cacher {
+    rpc Get(GetRequest) returns (GetReply){}
+    rpc Set(SetRequest) returns (SetReply){}
+}
+
+message GetRequest {
+    string group = 1;
+    string key = 2;
+}
+
+message GetReply {
+    int32 code = 1;
+    string message = 2;
+    bytes value = 3;
+}
+
+message SetRequest {
+    string group = 1;
+    string key = 2;
+    bytes value = 3;
+}
+
+message SetReply {
+    int32 code = 1;
+    string message = 2;
+}
