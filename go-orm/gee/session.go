@@ -25,6 +25,21 @@ func (s *Session) Model(tbStruct interface{}) *Session {
 	return s
 }
 
+func (s *Session) TableExist(tableName string) (bool, error) {
+	s.Reset()
+	var stmt string
+	stmt, s.sqlVars = s.dialect.TableExistSQL(tableName)
+	s.sqlStmt.WriteString(stmt)
+	row, err := s.db.Query(s.sqlStmt.String(), s.sqlVars...)
+	if err != nil {
+		return false, err
+	}
+	if row.Next() {
+		return true, nil
+	}
+	return false, nil
+}
+
 func (s *Session) Create(tbStruct interface{}) error {
 	// 这个需要拼接create table的语句
 	/* tableName, fieldsname, type
@@ -38,6 +53,14 @@ func (s *Session) Create(tbStruct interface{}) error {
 	if s.table == nil {
 		s.table = StructToTable(tbStruct, s.dialect)
 	}
+	exist, err := s.TableExist(s.table.TableName)
+	if err != nil {
+		return err
+	}
+	if exist {
+		return errors.New("table exists")
+	}
+
 	s.sqlStmt.WriteString("CREATE TABLE ")
 	s.sqlStmt.WriteString(s.table.TableName)
 	s.sqlStmt.WriteString("(\n")
@@ -57,7 +80,7 @@ func (s *Session) Create(tbStruct interface{}) error {
 	}
 	s.sqlStmt.WriteString(")\n")
 	fmt.Println(s.sqlStmt.String())
-	_, err := s.db.Exec(s.sqlStmt.String(), s.sqlVars...)
+	_, err = s.db.Exec(s.sqlStmt.String(), s.sqlVars...)
 	return err
 
 }
