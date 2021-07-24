@@ -62,33 +62,7 @@ func go2DBType(typeName string) string {
 	return ""
 }
 
-func goKind2DBType(kind reflect.Kind) string {
-	switch kind {
-	case reflect.Bool:
-		return "tinyint(4)"
-	case reflect.Int8:
-		return "tinyint(4)"
-	case reflect.Int:
-		return "int(11)"
-	case reflect.Int16:
-		return "int(11)"
-	case reflect.Int32:
-		return "int(11)"
-	case reflect.Int64:
-		return "bigint"
-	case reflect.Float32:
-		return "float"
-	case reflect.Float64:
-		return "double"
-	case reflect.String:
-		return "varchar"
-
-	}
-	return ""
-
-}
-
-func StructToTable(tbStruct interface{}) *RefTable {
+func StructToTable(tbStruct interface{}, dialect Dialect) *RefTable {
 	r := &RefTable{}
 	// 通过反射获取数据的filed，获取其name，value，tag
 	typ := reflect.TypeOf(tbStruct)
@@ -97,25 +71,26 @@ func StructToTable(tbStruct interface{}) *RefTable {
 	r.Name2Field = make(map[string]*Field)
 	val := reflect.ValueOf(tbStruct)
 	for i := 0; i < typ.NumField(); i++ {
-		fieldName := val.Type().Field(i).Name
+		fieldName := typ.Field(i).Name
 		if alias, ok := typ.Field(i).Tag.Lookup("db"); ok {
 			fieldName = alias
 		} else {
 			// 转化为下划线的
 			fieldName = Camel2Case(fieldName)
 		}
-		//typeName := val.Type().Field(i).Type.Kind()
+		dbType := dialect.DataTypeOf(val.Field(i))
 
 		//dbType := goKind2DBType(typeName)
-		typeName := val.Type().Field(i).Type.Name()
-		dbType := go2DBType(typeName)
+		//typeName := val.Type().Field(i).Type.Name()
+		//dbType := go2DBType(typeName)
 		if dbType == "varchar" {
 			dbType = "varchar(255)"
 			if len, ok := typ.Field(i).Tag.Lookup("len"); ok {
 				dbType = fmt.Sprintf("varchar(%s)", len)
 			}
 		}
-
+		// val.Field(i)是Value
+		// typ.Field(i)是structField
 		f := &Field{
 			Name:  fieldName,
 			Value: val.Field(i).Interface(),

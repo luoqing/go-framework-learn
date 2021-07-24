@@ -35,6 +35,7 @@ func TestStructToTable(t *testing.T) {
 		InsertTime time.Time
 	}
 	var conf AppConf
-	r := StructToTable(conf)
+	dialect := &MysqlDialect{}
+	r := StructToTable(conf, dialect)
 	fmt.Println(*r)
 }

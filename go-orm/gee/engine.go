@@ -2,12 +2,18 @@ package gee
 
 import (
 	"database/sql"
+	"errors"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 type Engine struct {
-	db *sql.DB
+	db      *sql.DB
+	dialect Dialect
+}
+
+func init() {
+	RegisterDialect("mysql", &MysqlDialect{})
 }
 
 func NewEngine(dns, source string) *Engine {
@@ -21,8 +27,13 @@ func NewEngine(dns, source string) *Engine {
 	if err := db.Ping(); err != nil {
 		panic(err)
 	}
+	dialect, ok := GetDialect(source)
+	if !ok {
+		panic(errors.New("get dialect failed"))
+	}
 	return &Engine{
-		db: db,
+		db:      db,
+		dialect: dialect,
 	}
 }
 
@@ -32,6 +43,7 @@ func (g *Engine) Close() {
 
 func (g *Engine) NewSession() *Session {
 	return &Session{
-		db: g.db,
+		db:      g.db,
+		dialect: g.dialect,
 	}
 }

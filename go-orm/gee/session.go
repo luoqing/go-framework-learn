@@ -12,6 +12,7 @@ type Session struct {
 	sqlStmt strings.Builder
 	sqlVars []interface{}
 	table   *RefTable
+	dialect Dialect
 }
 
 func (s *Session) Reset() {
@@ -20,7 +21,7 @@ func (s *Session) Reset() {
 }
 
 func (s *Session) Model(tbStruct interface{}) *Session {
-	s.table = StructToTable(tbStruct)
+	s.table = StructToTable(tbStruct, s.dialect)
 	return s
 }
 
@@ -35,7 +36,7 @@ func (s *Session) Create(tbStruct interface{}) error {
 	*/
 	s.Reset()
 	if s.table == nil {
-		s.table = StructToTable(tbStruct)
+		s.table = StructToTable(tbStruct, s.dialect)
 	}
 	s.sqlStmt.WriteString("CREATE TABLE ")
 	s.sqlStmt.WriteString(s.table.TableName)
@@ -64,7 +65,7 @@ func (s *Session) Create(tbStruct interface{}) error {
 func (s *Session) Insert(tbStruct interface{}) (sql.Result, error) {
 	s.Reset()
 	if s.table == nil {
-		s.table = StructToTable(tbStruct)
+		s.table = StructToTable(tbStruct, s.dialect)
 	}
 	s.sqlStmt.WriteString("INSERT INTO ")
 	s.sqlStmt.WriteString(s.table.TableName)
