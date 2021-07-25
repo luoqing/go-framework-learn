@@ -110,18 +110,20 @@ func _orderby(values ...interface{}) (string, []interface{}) {
 	var vars []interface{}
 	return stmt, vars
 }
-func _insert(values ...interface{}) (string, []interface{}) {
-	fields := strings.Join(values[1].([]string), ",")
-	stmt := fmt.Sprintf("INSERT INTO %s (%s)", values[0], fields)
 
-	return stmt, values[1:]
-}
 func placeHolders(num int) string {
 	var vars []string
 	for i := 0; i < num; i++ {
 		vars = append(vars, "?")
 	}
 	return strings.Join(vars, ", ")
+}
+
+func _insert(values ...interface{}) (string, []interface{}) {
+	fields := strings.Join(values[1].([]string), ",")
+	stmt := fmt.Sprintf("INSERT INTO %s (%s)", values[0], fields)
+	var vars []interface{}
+	return stmt, vars
 }
 
 // 插入多行
@@ -145,9 +147,22 @@ func _values(values ...interface{}) (string, []interface{}) {
 }
 
 func _update(values ...interface{}) (string, []interface{}) {
-	stmt := fmt.Sprintf("UPDATE %s SET", values[0])
+	var vars []interface{}
+	var sql strings.Builder
+	stmt := fmt.Sprintf("UPDATE %s SET ", values[0])
+	sql.WriteString(stmt)
+	var cols []string
+	for _, value := range values[1:] {
+		field := value.([]interface{})
+		k := field[0]
+		v := field[1]
+		col := fmt.Sprintf("%s = ?", k)
+		cols = append(cols, col)
+		vars = append(vars, v)
+	}
 
-	return stmt, values[1:]
+	sql.WriteString(strings.Join(cols, ","))
+	return sql.String(), vars
 }
 
 func _delete(values ...interface{}) (string, []interface{}) {
