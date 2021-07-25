@@ -19,7 +19,7 @@ func init() {
 	}()
 	g = NewEngine(dns, source)
 }
-func TestEngine(t *testing.T) {
+func TestQuery(t *testing.T) {
 	defer func() {
 		if err := recover(); err != nil {
 			t.Fatalf("connect db:%v", err)
@@ -27,38 +27,37 @@ func TestEngine(t *testing.T) {
 	}()
 	defer g.Close()
 	s := g.NewSession()
-	stmt := "SELECT Fapp_key, Fapp_name FROM t_access_app_conf WHERE Fapp_id = ?"
-	rows, err := s.Query(stmt, 12)
+	stmt := "SELECT app_name FROM app_conf WHERE app_id = ?"
+	rows, err := s.Query(stmt, 11)
 	if err != nil {
 		t.Fatalf("query rows failed:%v", err)
 	}
 	defer rows.Close()
-	var appkey, appname string
+	var appname string
 	for rows.Next() {
-		if err := rows.Scan(&appkey, &appname); err != nil {
+		if err := rows.Scan(&appname); err != nil {
 			log.Fatalf("row scan error")
 		}
-		fmt.Println(appkey)
 		fmt.Println(appname)
 	}
 
 }
 
 func TestCreateTable(t *testing.T) {
-	type AppConf struct {
+	type AppConf2 struct {
 		AppID      int32  `db:"app_id"`
 		AppName    string `len:"128"`
 		InsertTime time.Time
 	}
 	s := g.NewSession()
-	var conf AppConf
+	var conf AppConf2
 	err := s.Create(conf)
 	if err != nil {
 		t.Errorf("create table failed：%v", err)
 	}
 }
 
-func TestInsertTable(t *testing.T) {
+func TestInsert2Table(t *testing.T) {
 	type AppConf struct {
 		AppID      int32  `db:"app_id"`
 		AppName    string `len:"128"`
@@ -70,7 +69,7 @@ func TestInsertTable(t *testing.T) {
 		AppName:    "dfdfd",
 		InsertTime: time.Now(),
 	}
-	_, err := s.Insert(conf)
+	_, err := s.Insert2(conf)
 	if err != nil {
 		t.Errorf("insert table failed：%v", err)
 	}
