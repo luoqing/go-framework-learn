@@ -17,10 +17,11 @@ type Field struct {
 
 type Schema struct {
 	//fields []*Filed
-	Model      interface{} // 存储struct
-	FieldNames []string
-	name2Field map[string]*Field // 这个为啥要存成private，是为了不让修改是吗
-	TableName  string            // table的名称
+	Model       interface{} // 存储struct
+	FieldNames  []string
+	FieldValues []interface{}
+	name2Field  map[string]*Field // 这个为啥要存成private，是为了不让修改是吗
+	TableName   string            // table的名称
 }
 
 func (s *Schema) GetField(name string) (*Field, bool) {
@@ -69,6 +70,7 @@ func StructToTable(tbStruct interface{}, dialect Dialect) *Schema {
 			Tag:   typ.Field(i).Tag,
 			Type:  dbType,
 		}
+		r.FieldValues = append(r.FieldValues, f.Value)
 		r.FieldNames = append(r.FieldNames, fieldName)
 		r.SetField(fieldName, f)
 	}

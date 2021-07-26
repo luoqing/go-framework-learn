@@ -14,6 +14,7 @@ type Session struct {
 	sqlVars []interface{}
 	table   *Schema
 	dialect Dialect
+	clause  Clause
 }
 
 func (s *Session) Reset() {
@@ -26,6 +27,10 @@ func (s *Session) Model(tbStruct interface{}) *Session {
 		s.table = StructToTable(tbStruct, s.dialect)
 	}
 	return s
+}
+
+func (s *Session) RefTable() *Schema {
+	return s.table
 }
 
 func (s *Session) TableExist(tableName string) (bool, error) {
@@ -85,6 +90,127 @@ func (s *Session) Create(tbStruct interface{}) error {
 	_, err = s.db.Exec(s.sqlStmt.String(), s.sqlVars...)
 	return err
 
+}
+func (s *Session) Select(values ...string) *Session {
+	s.clause.Set(SELECT, s.table.TableName, values)
+	return s
+}
+
+func (s *Session) Where(values ...string) *Session {
+	s.clause.Set(WHERE, values)
+	return s
+}
+
+func (s *Session) Limit(n int) *Session {
+	s.clause.Set(LIMIT, n)
+	return s
+}
+
+func (s *Session) OrderBy(orderRule string) *Session {
+	s.clause.Set(ORDERBY, orderRule)
+	return s
+}
+
+func (s *Session) Find(values []interface{}) error {
+	destSlice := reflect.Indirect(reflect.ValueOf(values))
+	destType := destSlice.Type().Elem() // 获取类型
+	table := s.Model(reflect.New(destType).Elem().Interface()).RefTable()
+
+	sql, vars := s.clause.Build(SELECT, WHERE, ORDERBY, LIMIT)
+	rows, err := s.db.Query(sql, vars...)
+	if err != nil {
+		return err
+	}
+	// 进行数据的scan
+	for rows.Next() {
+		// new一个类型的实际例子
+		dest := reflect.New(destType).Elem()
+
+		var fields []interface{}
+		for _, name := range table.FieldNames {
+			fields = append(fields, dest.FieldByName(name).Addr().Interface())
+		}
+		/*
+			val := reflect.ValueOf(dest)
+			typ := reflect.TypeOf(dest)
+			for i := 0; i < typ.NumField(); i++ {
+				field := val.Field(i).Interface()
+				fields = append(fields, field)
+			}
+		*/
+		if err := rows.Scan(fields...); err != nil {
+			return err
+		}
+		values = append(values, dest)
+		//destSlice.Set(reflect.Append(destSlice, dest))
+	}
+	return rows.Close()
+
+}
+
+/*
+func (s *Session) First(value interface{}) error {
+	dest := reflect.Indirect(reflect.ValueOf(value))
+	//destType := destSlice.Type().Elem()
+	//dest := reflect.New(destType).Elem()
+	destType := dest.Type().Elem()
+	destSlice := reflect.New(reflect.SliceOf(destType)).Elem()
+	if err := s.Limit(1).Find(destSlice.Addr().Interface()); err != nil {
+		return err
+	}
+	if destSlice.Len() == 0 {
+		return errors.New("NOT FOUND")
+	}
+	dest.Set(destSlice.Index(0))
+	return nil
+}*/
+
+func struct2record(tbStruct interface{}) (vars []interface{}) {
+	typ := reflect.TypeOf(tbStruct)
+	val := reflect.ValueOf(tbStruct)
+	for i := 0; i < typ.NumField(); i++ {
+		value := val.Field(i).Interface()
+		vars = append(vars, value)
+	}
+	return
+}
+
+func (s *Session) Insert(tbStruct ...interface{}) (sql.Result, error) {
+	// 一个struct对应一个record
+	s = s.Model(tbStruct[0])
+	fields := s.table.FieldNames
+	s.clause.Set(INSERT, s.table.TableName, fields)
+	var values []interface{}
+	for _, st := range tbStruct {
+		record := struct2record(st)
+		values = append(values, record)
+	}
+	s.clause.Set(VALUES, values...)
+	sql, vars := s.clause.Build(INSERT, VALUES)
+	return s.db.Exec(sql, vars...)
+}
+
+func (s *Session) Update(tbStruct interface{}) (sql.Result, error) {
+	s = s.Model(tbStruct)
+	fields := s.table.FieldNames
+	values := struct2record(tbStruct)
+	updateVars := []interface{}{s.table.TableName}
+	for i, value := range values {
+		field := fields[i]
+		v := []interface{}{field, value}
+		updateVars = append(updateVars, v)
+	}
+	s.clause.Set(UPDATE, updateVars...)
+	sql, vars := s.clause.Build(UPDATE, WHERE, LIMIT)
+	return s.db.Exec(sql, vars...)
+}
+
+// 找到主键, 先用where
+func (s *Session) Delete(tbStruct interface{}) (sql.Result, error) {
+	s = s.Model(tbStruct)
+	s.clause.Set(DELETE, s.table.TableName)
+	sql, vars := s.clause.Build(DELETE, WHERE, LIMIT)
+	return s.db.Exec(sql, vars...)
 }
 
 func (s *Session) Insert2(tbStruct interface{}) (sql.Result, error) {
