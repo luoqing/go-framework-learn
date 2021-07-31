@@ -99,15 +99,17 @@ func (g *Group) Get(key string) ([]byte, error) {
 func (g *Group) Load(key string) ([]byte, error) {
 	g.s.Mu.Lock()
 	if _, ok := g.s.Map[key]; ok {
+		g.s.Mu.Unlock()
+		g.s.Wg.Wait()
 		return nil, errors.New("key is running")
 	}
 	g.s.Mu.Unlock()
 
 	g.s.Mu.Lock()
+	g.s.Wg.Add(1)
 	g.s.Map[key] = true
 	g.s.Mu.Unlock()
 
-	g.s.Wg.Add(1)
 
 	value, err := g.storage.Get(key) // 我只考虑到storage那一层的击穿
 	g.s.Wg.Done()
