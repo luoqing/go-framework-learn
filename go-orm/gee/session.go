@@ -91,6 +91,14 @@ func (s *Session) Create(tbStruct interface{}) error {
 	return err
 
 }
+
+func (s *Session) Drop(tbStruct interface{}) error {
+	s = s.Model(tbStruct)
+	sql := fmt.Sprintf("DROP TABLE %s", s.table.TableName)
+	_, err := s.db.Exec(sql)
+	return err
+}
+
 func (s *Session) Select(values ...string) *Session {
 	s.clause.Set(SELECT, s.table.TableName, values)
 	return s
@@ -128,7 +136,7 @@ func (s *Session) Find(values interface{}) error {
 		dest := reflect.New(destType).Elem()
 
 		var fields []interface{}
-		for _, name := range table.FieldNames {
+		for _, name := range table.SturctFields {
 			fields = append(fields, dest.FieldByName(name).Addr().Interface())
 		}
 		/*
@@ -137,8 +145,8 @@ func (s *Session) Find(values interface{}) error {
 			for i := 0; i < typ.NumField(); i++ {
 				field := val.Field(i).Interface()
 				fields = append(fields, field)
-			}
-		*/
+			}*/
+
 		if err := rows.Scan(fields...); err != nil {
 			return err
 		}
@@ -152,8 +160,9 @@ func (s *Session) First(value interface{}) error {
 	dest := reflect.Indirect(reflect.ValueOf(value))
 	//destType := destSlice.Type().Elem()
 	//dest := reflect.New(destType).Elem()
-	destType := dest.Type().Elem()
-	destSlice := reflect.New(reflect.SliceOf(destType)).Elem()
+	//destType := dest.Type()
+	//destSlice := reflect.New(reflect.SliceOf(destType)).Elem()
+	destSlice := reflect.New(reflect.SliceOf(dest.Type())).Elem()
 	if err := s.Limit(1).Find(destSlice.Addr().Interface()); err != nil {
 		return err
 	}
@@ -236,11 +245,13 @@ func (s *Session) Insert2(tbStruct interface{}) (sql.Result, error) {
 	name := s.table.FieldNames[len(s.table.FieldNames)-1]
 	field, ok := s.table.GetField(name)
 	if !ok {
-		return nil, errors.New("error table Name2Field")
+		err := errors.New("error table Name2Field")
+		Error("insert table failed:%v field:%s", err, name)
+		return nil, err
 	}
 	s.sqlVars = append(s.sqlVars, field.Value)
 
-	fmt.Println(s.sqlStmt.String())
+	Info(s.sqlStmt.String())
 	return s.db.Exec(s.sqlStmt.String(), s.sqlVars...)
 }
 

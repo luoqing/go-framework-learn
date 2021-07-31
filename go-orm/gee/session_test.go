@@ -44,6 +44,7 @@ func TestQuery(t *testing.T) {
 }
 
 func TestCreateTable(t *testing.T) {
+
 	type AppConf2 struct {
 		AppID      int32  `db:"app_id"`
 		AppName    string `len:"128"`
@@ -51,7 +52,12 @@ func TestCreateTable(t *testing.T) {
 	}
 	s := g.NewSession()
 	var conf AppConf2
-	err := s.Create(conf)
+	err := s.Drop(conf)
+	if err != nil {
+		t.Errorf("drop table failed：%v", err)
+	}
+
+	err = s.Create(conf)
 	if err != nil {
 		t.Errorf("create table failed：%v", err)
 	}
@@ -77,27 +83,53 @@ func TestInsert2Table(t *testing.T) {
 	}
 }
 
+// has one problem
 func TestSelect(t *testing.T) {
 	s := g.NewSession()
-	var confs []AppConf
+	type Conf struct {
+		AppID      int32  `db:"app_id"`
+		AppName    string `len:"128"`
+		InsertTime string
+	}
+	var confs []Conf
 	var conf AppConf
 	var appID int32 = 11
-	err := s.Model(conf).Select("*").Where("app_id = ?", appID).Limit(2).Find(&confs)
+	// 无法获取insertTime类型为time.Time的字段
+	// 这里必须先model，因为select需要tableName
+	err := s.Model(conf).Select("app_id, app_name,insert_time").Where("app_id = ?", appID).Limit(2).Find(&confs)
 	if err != nil {
 		t.Errorf("select error:%v", err)
 	}
-
+	Info("%v", confs)
 }
 
-func TestInsert(t *testing.T) {
+func TestSelectOne(t *testing.T) {
+	s := g.NewSession()
+	type Conf struct {
+		AppID      int32  `db:"app_id"`
+		AppName    string `len:"128"`
+		InsertTime string
+	}
+	var conf AppConf
+	var appID int32 = 11
+	var rst Conf
+	// 无法获取insertTime类型为time.Time的字段
+	err := s.Model(conf).Select("app_id, app_name,insert_time").Where("app_id = ?", appID).First(&rst) // 必须传指针，否则无法根据Address()来进行赋值
+	if err != nil {
+		t.Errorf("select error:%v", err)
+	}
+	Info("%v", rst)
+}
+
+func TestMultiInsert(t *testing.T) {
 	var conf1 = AppConf{
-		AppID:      11,
-		AppName:    "dfdfd",
+		AppID:      21,
+		AppName:    "dfdfd89fdfd",
 		InsertTime: time.Now(),
 	}
 
 	var conf2 = AppConf{
-		AppID:      12,
+		AppID:      22,
 		AppName:    "dfdfd",
 		InsertTime: time.Now(),
 	}
@@ -111,12 +143,12 @@ func TestInsert(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	var conf = AppConf{
 		AppID:      11,
-		AppName:    "fdfdfdfd",
+		AppName:    "fdfdfdfdupdate",
 		InsertTime: time.Now(),
 	}
 	var appID int32 = 11
 	s := g.NewSession()
-	_, err := s.Where("app_id = ?", appID).Update(&conf)
+	_, err := s.Where("app_id = ?", appID).Update(conf)
 	if err != nil {
 		t.Errorf("update error:%v", err)
 	}
@@ -124,5 +156,15 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-
+	s := g.NewSession()
+	var conf AppConf
+	var appID int32 = 11
+	_, err := s.Where("app_id = ?", appID).Delete(conf)
+	if err != nil {
+		t.Errorf("delete error:%v", err)
+	}
 }
+
+// todo 去写一个日志类，日志类会有不同的颜色
+// level，writter(console, file)
+// 封装现有的日志，屏幕输出显示不同的颜色

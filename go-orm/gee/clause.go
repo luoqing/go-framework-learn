@@ -55,7 +55,7 @@ func (c *Clause) Build(orders ...Type) (string, []interface{}) {
 		}
 	}
 	stmt := strings.Join(sqls, " ")
-	fmt.Printf("clause:%s, %v\n", stmt, vars)
+	Info("clause %s, %v\n", stmt, vars)
 	return stmt, vars
 
 }

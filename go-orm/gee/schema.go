@@ -3,6 +3,7 @@ package gee
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"unicode"
 )
 
@@ -17,11 +18,12 @@ type Field struct {
 
 type Schema struct {
 	//fields []*Filed
-	Model       interface{} // 存储struct
-	FieldNames  []string
-	FieldValues []interface{}
-	name2Field  map[string]*Field // 这个为啥要存成private，是为了不让修改是吗
-	TableName   string            // table的名称
+	Model        interface{} // 存储struct
+	FieldNames   []string
+	SturctFields []string
+	FieldValues  []interface{}
+	name2Field   map[string]*Field // 这个为啥要存成private，是为了不让修改是吗
+	TableName    string            // table的名称
 }
 
 func (s *Schema) GetField(name string) (*Field, bool) {
@@ -62,7 +64,8 @@ func StructToTable(tbStruct interface{}, dialect Dialect) *Schema {
 			// 转化为下划线的
 			fieldName = Camel2Case(fieldName)
 		}
-		dbType := dialect.DataTypeOf(val.Field(i))
+		//dbType := dialect.DataTypeOf(val.Field(i))
+		dbType := dialect.DataTypeOf(reflect.Indirect(reflect.New(typ.Field(i).Type)))
 
 		//dbType := goKind2DBType(typeName)
 		//typeName := val.Type().Field(i).Type.Name()
@@ -76,13 +79,14 @@ func StructToTable(tbStruct interface{}, dialect Dialect) *Schema {
 		// val.Field(i)是Value
 		// typ.Field(i)是structField
 		f := &Field{
-			Name:  fieldName,
+			Name:  typ.Field(i).Name,
 			Value: val.Field(i).Interface(),
 			Tag:   typ.Field(i).Tag,
 			Type:  dbType,
 		}
 		r.FieldValues = append(r.FieldValues, f.Value)
 		r.FieldNames = append(r.FieldNames, fieldName)
+		r.SturctFields = append(r.SturctFields, f.Name)
 		r.SetField(fieldName, f)
 	}
 	return r
@@ -101,6 +105,17 @@ func Camel2Case(name string) string {
 		}
 	}
 	return string(buffer)
+}
+
+func Case2Camel(name string) string {
+	words := strings.Split(name, "_")
+	var builder strings.Builder
+	for _, word := range words {
+		w := rune(word[0])
+		builder.WriteString(string(unicode.ToUpper(w)))
+		builder.WriteString(word[1:])
+	}
+	return builder.String()
 }
 
 func go2DBType(typeName string) string {

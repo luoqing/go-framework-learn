@@ -27,6 +27,27 @@ func TestCamel2Case(t *testing.T) {
 	}
 }
 
+func TestCase2Camel(t *testing.T) {
+	tests := []struct {
+		Want string
+		Name string
+	}{
+		{"Abc", "abc"},
+		{"AppName", "app_name"},
+		{"AppId", "app_id"}, // id 要特殊处理
+		{"IsLo", "is_lo"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.Name, func(t *testing.T) {
+			after := Case2Camel(tt.Name)
+			if after != tt.Want {
+				t.Errorf("error convert:%s - %s", tt.Name, after)
+			}
+		})
+	}
+
+}
+
 func TestStructToTable(t *testing.T) {
 	// 将struct转化为table
 	type AppConf struct {
