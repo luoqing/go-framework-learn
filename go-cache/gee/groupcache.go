@@ -62,6 +62,27 @@ func (g *Group) RegisterPeers(peers PeerPicker) {
 }
 
 func (g *Group) Get(key string) ([]byte, error) {
+	v, err := g.s.Do(key, func() (interface{}, error) {
+		value, err := g.getFromCache(key)
+		if err == nil {
+			return value, err
+		}
+		value, err = g.getFromPeer(key)
+		if err == nil {
+			return value, err
+		}
+		// 此处是穿透cache去获取数据，防止同一个key同时多次请求击穿缓存，此处需要加锁
+		return g.storage.Get(key)
+	})
+	var bts []byte
+	if v != nil {
+		bts = v.([]byte)
+	}
+	return bts, err
+}
+
+/*
+func (g *Group) Get(key string) ([]byte, error) {
 	// 先在localcache上查，然后再getFromPeer
 	value, err := g.getFromCache(key)
 	if err == nil {
@@ -74,24 +95,27 @@ func (g *Group) Get(key string) ([]byte, error) {
 	// 此处是穿透cache去获取数据，防止同一个key同时多次请求击穿缓存，此处需要加锁
 	return g.Load(key)
 }
-
 func (g *Group) Load(key string) ([]byte, error) {
 	g.s.Mu.Lock()
 	if _, ok := g.s.Map[key]; ok {
 		return nil, errors.New("key is running")
 	}
 	g.s.Mu.Unlock()
+
 	g.s.Mu.Lock()
 	g.s.Map[key] = true
 	g.s.Mu.Unlock()
+
 	g.s.Wg.Add(1)
-	value, err := g.storage.Get(key)
+
+	value, err := g.storage.Get(key) // 我只考虑到storage那一层的击穿
 	g.s.Wg.Done()
+
 	g.s.Mu.Lock()
 	delete(g.s.Map, key)
 	g.s.Mu.Unlock()
 	return value, err
-}
+}*/
 
 // todo:最好是返回byte
 func (g *Group) getFromCache(key string) ([]byte, error) {
