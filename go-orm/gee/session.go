@@ -96,8 +96,8 @@ func (s *Session) Select(values ...string) *Session {
 	return s
 }
 
-func (s *Session) Where(values ...string) *Session {
-	s.clause.Set(WHERE, values)
+func (s *Session) Where(values ...interface{}) *Session {
+	s.clause.Set(WHERE, values...)
 	return s
 }
 
@@ -111,12 +111,13 @@ func (s *Session) OrderBy(orderRule string) *Session {
 	return s
 }
 
-func (s *Session) Find(values []interface{}) error {
+func (s *Session) Find(values interface{}) error {
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem() // 获取类型
-	table := s.Model(reflect.New(destType).Elem().Interface()).RefTable()
 
 	sql, vars := s.clause.Build(SELECT, WHERE, ORDERBY, LIMIT)
+	table := s.Model(reflect.New(destType).Elem().Interface()).RefTable()
+
 	rows, err := s.db.Query(sql, vars...)
 	if err != nil {
 		return err
@@ -141,14 +142,12 @@ func (s *Session) Find(values []interface{}) error {
 		if err := rows.Scan(fields...); err != nil {
 			return err
 		}
-		values = append(values, dest)
-		//destSlice.Set(reflect.Append(destSlice, dest))
+		destSlice.Set(reflect.Append(destSlice, dest))
 	}
 	return rows.Close()
 
 }
 
-/*
 func (s *Session) First(value interface{}) error {
 	dest := reflect.Indirect(reflect.ValueOf(value))
 	//destType := destSlice.Type().Elem()
@@ -163,7 +162,7 @@ func (s *Session) First(value interface{}) error {
 	}
 	dest.Set(destSlice.Index(0))
 	return nil
-}*/
+}
 
 func struct2record(tbStruct interface{}) (vars []interface{}) {
 	typ := reflect.TypeOf(tbStruct)

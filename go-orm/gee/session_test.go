@@ -57,12 +57,14 @@ func TestCreateTable(t *testing.T) {
 	}
 }
 
+type AppConf struct {
+	AppID      int32  `db:"app_id"`
+	AppName    string `len:"128"`
+	InsertTime time.Time
+}
+
 func TestInsert2Table(t *testing.T) {
-	type AppConf struct {
-		AppID      int32  `db:"app_id"`
-		AppName    string `len:"128"`
-		InsertTime time.Time
-	}
+
 	s := g.NewSession()
 	var conf = AppConf{
 		AppID:      11,
@@ -73,5 +75,54 @@ func TestInsert2Table(t *testing.T) {
 	if err != nil {
 		t.Errorf("insert table failed：%v", err)
 	}
+}
+
+func TestSelect(t *testing.T) {
+	s := g.NewSession()
+	var confs []AppConf
+	var conf AppConf
+	var appID int32 = 11
+	err := s.Model(conf).Select("*").Where("app_id = ?", appID).Limit(2).Find(&confs)
+	if err != nil {
+		t.Errorf("select error:%v", err)
+	}
+
+}
+
+func TestInsert(t *testing.T) {
+	var conf1 = AppConf{
+		AppID:      11,
+		AppName:    "dfdfd",
+		InsertTime: time.Now(),
+	}
+
+	var conf2 = AppConf{
+		AppID:      12,
+		AppName:    "dfdfd",
+		InsertTime: time.Now(),
+	}
+	s := g.NewSession()
+	_, err := s.Insert(conf1, conf2)
+	if err != nil {
+		t.Errorf("insert error:%v", err)
+	}
+}
+
+func TestUpdate(t *testing.T) {
+	var conf = AppConf{
+		AppID:      11,
+		AppName:    "fdfdfdfd",
+		InsertTime: time.Now(),
+	}
+	var appID int32 = 11
+	s := g.NewSession()
+	_, err := s.Where("app_id = ?", appID).Update(&conf)
+	if err != nil {
+		t.Errorf("update error:%v", err)
+	}
+
+}
+
+func TestDelete(t *testing.T) {
 
 }

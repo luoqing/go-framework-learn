@@ -33,6 +33,17 @@ func (s *Schema) SetField(name string, field *Field) {
 	s.name2Field[name] = field
 }
 
+func (schema *Schema) RecordValues(dest interface{}) []interface{} {
+	destValue := reflect.Indirect(reflect.ValueOf(dest))
+	var fieldValues []interface{}
+	for _, field := range schema.FieldNames {
+		fieldValues = append(fieldValues, destValue.FieldByName(field).Interface())
+
+		//fieldValues = append(fieldValues, destValue.FieldByName(field.Name).Interface())
+	}
+	return fieldValues
+}
+
 func StructToTable(tbStruct interface{}, dialect Dialect) *Schema {
 	r := &Schema{
 		Model:      tbStruct,

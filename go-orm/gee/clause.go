@@ -54,7 +54,9 @@ func (c *Clause) Build(orders ...Type) (string, []interface{}) {
 			vars = append(vars, c.vars[order]...)
 		}
 	}
-	return strings.Join(sqls, " "), vars
+	stmt := strings.Join(sqls, " ")
+	fmt.Printf("clause:%s, %v\n", stmt, vars)
+	return stmt, vars
 
 }
 
