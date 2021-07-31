@@ -1,0 +1,86 @@
+package gee
+
+import(
+	"testing"
+	"fmt"
+	"flag"
+	"net/http"
+	"log"
+)
+
+// mock测试
+// https://geektutu.com/post/quick-gomock.html
+// 
+
+func startCacheRpcServer(addr string, svrs []string, sinker Sinker) {
+	pool := NewRpcPool(addr, 5, svrs)
+	
+	name := "testg"
+	g := NewGroup(name, 2<<10, sinker) // sinker 本地内存， name是内存的名称
+	g.RegisterPeers(pool)
+	pool.Run()
+
+}
+
+
+func startApiServer(apiAddr string, server string) {
+	http.Handle("/api/get", http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			group := r.URL.Query().Get("group")
+			key := r.URL.Query().Get("key")
+			client := PpcGetter{
+				server: server,
+			}
+			value, err := client.Get(group, key)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Write(value)
+		}))
+
+	http.Handle("/api/set", http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			value := r.URL.Query().Get("value")
+			group := r.URL.Query().Get("group")
+			key := r.URL.Query().Get("key")
+			client := PpcGetter{
+				server: server,
+			}
+			b := []byte(value)
+			err := client.Set(group, key, b)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			w.Header().Set("Content-Type", "application/octet-stream")
+			fmt.Fprintln(w, "success")
+		}))
+	log.Println("fontend server is running at", apiAddr)
+	log.Fatal(http.ListenAndServe(apiAddr[:7], nil))
+
+}
+
+var addr1, sinker1 string
+func init() {
+	testing.Init()
+	flag.StringVar(&addr1, "server", "localhost:8090", "cache server")
+	flag.StringVar(&sinker1, "sinker", "map", "cache sinker")
+	flag.Parse()
+}
+
+func TestRpcGroupCache(t *testing.T){
+	servers := []string{"localhost:8089", "localhost:8090", "localhost:8091", "localhost:8092", "localhost:8088"}
+	fmt.Printf("start addr:%s\n", addr1)
+
+	var getter Sinker
+	if sinker1 == "map" {
+		getter = NewSMap()
+	} else if sinker1 == "file" {
+		getter = NewFileSinker("./")
+	} else {
+		t.Fatalf("error sinker:%s! sinker should be map or file!", sinker1)
+	}
+	startCacheRpcServer(addr1, servers, getter)
+	apiAddr := addr + "1"
+	startApiServer(apiAddr, addr1)
+}
