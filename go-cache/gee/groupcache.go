@@ -9,12 +9,12 @@
 // 但是这个group和name并没有 写入。peers一直有呀
 // 还是需要测试看看
 
-
 package gee
+
 import (
+	"errors"
 	"go-cache/lru"
 	"sync"
-	"errors"
 )
 
 var (
@@ -23,21 +23,23 @@ var (
 )
 
 type Group struct {
-	name string
+	name    string
 	storage Sinker
 	// local cache
-	localCache *lru.Cache
+	localCache   *lru.Cache
 	maxCacheSize int
 	// pick peer ---including hash and get
 	peers PeerPicker
+	s     *SingleFlight
 }
 
-func NewGroup(name string, cacheSize int, sinker Sinker)*Group {
+func NewGroup(name string, cacheSize int, sinker Sinker) *Group {
 	g := &Group{
-		name: name,
+		name:         name,
 		maxCacheSize: cacheSize,
-		localCache: lru.New(cacheSize),
-		storage: sinker,
+		localCache:   lru.New(cacheSize),
+		storage:      sinker,
+		s:            NewSingleFlight(),
 	}
 	mu.Lock()
 	defer mu.Unlock()
@@ -45,7 +47,7 @@ func NewGroup(name string, cacheSize int, sinker Sinker)*Group {
 	return g
 }
 
-func GetGroup(name string) (g *Group){
+func GetGroup(name string) (g *Group) {
 	mu.Lock()
 	defer mu.Unlock()
 	g, ok := groups[name]
@@ -55,11 +57,11 @@ func GetGroup(name string) (g *Group){
 	return g
 }
 
-func (g *Group)RegisterPeers(peers PeerPicker) {
+func (g *Group) RegisterPeers(peers PeerPicker) {
 	g.peers = peers
 }
 
-func (g *Group)Get(key string) ([]byte, error){
+func (g *Group) Get(key string) ([]byte, error) {
 	// 先在localcache上查，然后再getFromPeer
 	value, err := g.getFromCache(key)
 	if err == nil {
@@ -69,12 +71,30 @@ func (g *Group)Get(key string) ([]byte, error){
 	if err == nil {
 		return value, err
 	}
-	return g.storage.Get(key)
+	// 此处是穿透cache去获取数据，防止同一个key同时多次请求击穿缓存，此处需要加锁
+	return g.Load(key)
 }
 
+func (g *Group) Load(key string) ([]byte, error) {
+	g.s.Mu.Lock()
+	if _, ok := g.s.Map[key]; ok {
+		return nil, errors.New("key is running")
+	}
+	g.s.Mu.Unlock()
+	g.s.Mu.Lock()
+	g.s.Map[key] = true
+	g.s.Mu.Unlock()
+	g.s.Wg.Add(1)
+	value, err := g.storage.Get(key)
+	g.s.Wg.Done()
+	g.s.Mu.Lock()
+	delete(g.s.Map, key)
+	g.s.Mu.Unlock()
+	return value, err
+}
 
 // todo:最好是返回byte
-func (g *Group)getFromCache(key string) ([]byte, error){
+func (g *Group) getFromCache(key string) ([]byte, error) {
 	value, err := g.localCache.Get(key)
 	if err != nil {
 		return nil, err
@@ -82,7 +102,7 @@ func (g *Group)getFromCache(key string) ([]byte, error){
 	return value.([]byte), nil
 }
 
-func (g *Group)getFromPeer(key string) ([]byte, error){
+func (g *Group) getFromPeer(key string) ([]byte, error) {
 	if g.peers == nil {
 		return nil, errors.New("peers empty")
 	}
@@ -94,7 +114,7 @@ func (g *Group)getFromPeer(key string) ([]byte, error){
 	return value, err
 }
 
-func (g *Group)Set(key string, value []byte) (error){
+func (g *Group) Set(key string, value []byte) error {
 	// 先在localcache上设置，然后再getFromPeer
 	err := g.setFromCache(key, value)
 	if err != nil {
@@ -107,12 +127,12 @@ func (g *Group)Set(key string, value []byte) (error){
 	return g.storage.Set(key, value)
 }
 
-func (g *Group)setFromCache(key string, value []byte) (error){
+func (g *Group) setFromCache(key string, value []byte) error {
 	err := g.localCache.Set(key, value)
 	return err
 }
 
-func (g *Group)setFromPeer(key string, value []byte) (error){
+func (g *Group) setFromPeer(key string, value []byte) error {
 	if g.peers == nil {
 		return errors.New("peers empty")
 	}
@@ -123,8 +143,3 @@ func (g *Group)setFromPeer(key string, value []byte) (error){
 	err = peer.Set(g.name, key, value)
 	return err
 }
-
-
-
-
-

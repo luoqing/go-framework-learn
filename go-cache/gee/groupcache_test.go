@@ -26,7 +26,7 @@ func Test_GroupGet(t *testing.T) {
 	sinker := NewMockSinker(ctrl)
 	sinker.EXPECT().Get(gomock.Any()).DoAndReturn(func(key string) ([]byte, error) {
 		return []byte(key), nil
-	}).Times(1)
+	}).MaxTimes(10)
 
 	peers := NewMockPeerPicker(ctrl)
 
@@ -38,9 +38,9 @@ func Test_GroupGet(t *testing.T) {
 	getter.EXPECT().Get(gomock.Eq(name), gomock.Any()).DoAndReturn(
 		func(group, key string) ([]byte, error) {
 			return []byte(key), nil
-		}).Times(2)
-	peers.EXPECT().PickPeer(gomock.Not("Sam")).Return(getter, nil).Times(2)     // 如果不设置times就只执行一次
-	peers.EXPECT().PickPeer(gomock.Eq("Sam")).Return(nil, NOT_EXISTED).Times(1) // 如果不设置times就只执行一次
+		}).MaxTimes(10)
+	peers.EXPECT().PickPeer(gomock.Not("Sam")).Return(getter, nil).MaxTimes(10)     // 如果不设置times就只执行一次
+	peers.EXPECT().PickPeer(gomock.Eq("Sam")).Return(nil, NOT_EXISTED).MaxTimes(10) // 如果不设置times就只执行一次
 	g.RegisterPeers(peers)
 
 	cases := []struct {
@@ -50,6 +50,7 @@ func Test_GroupGet(t *testing.T) {
 		err   error
 	}{
 		{"Bill", []byte("Bill"), nil},
+		{"Sam", []byte("Sam"), nil}, // 此处应该会命中Sinker
 		{"Sam", []byte("Sam"), nil}, // 此处应该会命中Sinker
 		{"Tsing", []byte("Tsing"), nil},
 	}
@@ -69,15 +70,13 @@ func Test_GroupGet(t *testing.T) {
 	*/
 	for _, tt := range cases {
 		t.Run(tt.key, func(t *testing.T) {
+			t.Parallel() // 使用并行化，就使用MaxTimes，因为不好统计真实的命中Times
 			value, err := g.Get(tt.key)
-			fmt.Println(string(value))
-			fmt.Println(err)
-			//assert.Equal(t, err, tt.err)
-			//assert.Equal(t, value, tt.value)
-			Convey("test Group.Get", t, func() {
-				So(err, ShouldEqual, tt.err)
-				So(string(value), ShouldEqual, string(tt.value)) //[]byte还无法should equal
-			})
+			assert.Equal(t, err, tt.err)
+			assert.Equal(t, value, tt.value)
+			if string(value) != string(tt.value) {
+				fmt.Printf("%s- %s\n", value, tt.value)
+			}
 
 		})
 
@@ -118,6 +117,11 @@ func Test_getFromPeer(t *testing.T) {
 			value, err := g.getFromPeer(tt.key)
 			assert.Equal(t, err, tt.err)
 			assert.Equal(t, value, tt.value)
+			Convey("test getFromPeer", t, func() {
+				So(err, ShouldEqual, tt.err)
+				So(string(value), ShouldEqual, string(tt.value)) //[]byte还无法should equal
+			})
 		})
+
 	}
 }
