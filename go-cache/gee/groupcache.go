@@ -74,8 +74,9 @@ func (g *Group) Get(key string) ([]byte, error) {
 		// 此处是穿透cache去获取数据，防止同一个key同时多次请求击穿缓存，此处需要加锁
 		return g.storage.Get(key)
 	})
+
 	var bts []byte
-	if v != nil {
+	if err == nil && v != nil {
 		bts = v.([]byte)
 	}
 	return bts, err

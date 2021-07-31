@@ -44,16 +44,18 @@ func (s *SingleFlight) Do(key string, fn func() (interface{}, error)) (interface
 		s.m = make(map[string]*call) // 这个还不能在NewSingleFlight进行
 	}
 	if c, ok := s.m[key]; ok {
+		s.mu.Unlock() // lock和unlock配套使用
+		c.wg.Wait()   // wait等处理完，获取到数据, 此处不wait，wal拿到可能是nil
 		return c.val, c.err
 	}
 	s.mu.Unlock() // 这里要用defer吗
 
 	s.mu.Lock()
 	c := new(call)
+	c.wg.Add(1)
 	s.m[key] = c
 	s.mu.Unlock()
 
-	c.wg.Add(1)
 	c.val, c.err = fn()
 	c.wg.Done()
 

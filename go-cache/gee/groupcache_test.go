@@ -69,9 +69,11 @@ func Test_GroupGet(t *testing.T) {
 		--Testing suite interfaces and functions
 	*/
 	for _, tt := range cases {
+		tt := tt
 		t.Run(tt.key, func(t *testing.T) {
 			t.Parallel() // 使用并行化，就使用MaxTimes，因为不好统计真实的命中Times
 			value, err := g.Get(tt.key)
+			//fmt.Println(tt.value)
 			assert.Equal(t, err, tt.err)
 			assert.Equal(t, value, tt.value)
 			if string(value) != string(tt.value) {
