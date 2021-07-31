@@ -10,6 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// mockgen -source=peer.go -destination=peer_mock.go -package gee
+// mockgen -source=sink.go -destination=sink_mock.go -package gee
+// 注意go mod tidy中的gomock的版本与mockgen -version的版本一致
+
 // 使用testify
 // https://juejin.cn/post/6917956015132672007
 // 这个测试的逻辑如下：
