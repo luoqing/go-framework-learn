@@ -10,6 +10,7 @@ import (
 
 type Session struct {
 	db      *sql.DB
+	tx      *sql.Tx
 	sqlStmt strings.Builder
 	sqlVars []interface{}
 	table   *Schema
@@ -139,13 +140,13 @@ func (s *Session) Find(values interface{}) error {
 		for _, name := range table.SturctFields {
 			fields = append(fields, dest.FieldByName(name).Addr().Interface())
 		}
-		/*
-			val := reflect.ValueOf(dest)
-			typ := reflect.TypeOf(dest)
-			for i := 0; i < typ.NumField(); i++ {
-				field := val.Field(i).Interface()
-				fields = append(fields, field)
-			}*/
+		/* 这样写好像行不通
+		val := reflect.ValueOf(dest)
+		typ := reflect.TypeOf(dest)
+		for i := 0; i < typ.NumField(); i++ {
+			field := val.Field(i).Interface()
+			fields = append(fields, field)
+		}*/
 
 		if err := rows.Scan(fields...); err != nil {
 			return err
@@ -272,3 +273,73 @@ func (s *Session) Query(stmt string, args ...interface{}) (*sql.Rows, error) {
 	}
 	return s.db.Query(s.sqlStmt.String(), s.sqlVars...)
 }
+
+func (s *Session) Begin() (err error) {
+	s.tx, err = s.db.Begin()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Session) Rollback() error {
+	if s.tx == nil {
+		return errors.New("no tx begin")
+	}
+	return s.tx.Rollback()
+
+}
+
+func (s *Session) Commit() error {
+	if s.tx == nil {
+		return errors.New("no tx begin")
+	}
+	return s.tx.Commit()
+}
+
+func (s *Session) Transaction(fn func(*Session) error) (err error) {
+
+	err = s.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() error {
+		if err == nil {
+			return s.Commit()
+		} else {
+			return s.Rollback()
+		}
+	}()
+
+	err = fn(s)
+	return err
+}
+
+// register hooks
+// hooks callmethodbyname
+// todo hook
+// 使用reflect的MethodByName获取fn
+// 使用fn.Call(struct instance)来进行调用
+// 这个地方还是要试验下
+
+func (s *Session) CallMethod(method string, value interface{}) {
+	fm := reflect.ValueOf(s.RefTable().Model).MethodByName(method)
+	if value != nil {
+		fm = reflect.ValueOf(value).MethodByName(method)
+	}
+	param := []reflect.Value{reflect.ValueOf(s)}
+	if fm.IsValid() {
+		if v := fm.Call(param); len(v) > 0 {
+			if err, ok := v[0].Interface().(error); ok {
+				Error("hook err:%v", err)
+			}
+		}
+	}
+	return
+}
+
+// https://www.jianshu.com/p/bb4cc4bb8810
+// 将hook fn都封装在一个struct中，然后将这个struct通过context.WithValue封装到ctx中, 最后透传，在合适时机进行取出进行调用
+// 比如filters，我们进行注册，就是写入 map[string]Filter
+// 然后在合适时机触发调用

@@ -47,3 +47,25 @@ func (g *Engine) NewSession() *Session {
 		dialect: g.dialect,
 	}
 }
+
+// 这种写法相对来说更加通用一些，因为update等返回不一定
+type TxFunc func(*Session) (interface{}, error)
+
+func (g *Engine) Transaction(f TxFunc) (result interface{}, err error) {
+	s := g.NewSession()
+	if err := s.Begin(); err != nil {
+		return nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			_ = s.Rollback()
+			panic(p) // re-throw panic after Rollback
+		} else if err != nil {
+			_ = s.Rollback() // err is non-nil; don't change it
+		} else {
+			err = s.Commit() // err is nil; if Commit returns error update err
+		}
+	}()
+
+	return f(s)
+}

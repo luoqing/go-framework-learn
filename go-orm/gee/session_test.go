@@ -168,3 +168,60 @@ func TestDelete(t *testing.T) {
 // todo 去写一个日志类，日志类会有不同的颜色
 // level，writter(console, file)
 // 封装现有的日志，屏幕输出显示不同的颜色
+
+func TestTransaction(t *testing.T) {
+	s := g.NewSession()
+	var conf = AppConf{
+		AppID:      11,
+		AppName:    "update 1",
+		InsertTime: time.Now(),
+	}
+	var appID int32 = 11
+	fn := func(s *Session) error {
+		_, err := s.Where("app_id = ?", appID).Update(conf)
+		if err != nil {
+			return err
+		}
+		conf.AppName = "update 2"
+		_, err = s.Where("app_id = ?", appID).Update(conf)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	err := s.Transaction(fn)
+	if err != nil {
+		t.Errorf("tx error:%v", err)
+	}
+}
+
+// 这些考虑过并发吗
+// 最好是一个事务一个独立的sesssion， 这种方法会好点
+// 上面session粒度如果有两个事务公用一个s调用Transaction，则tx有可能出现问题，fn中使用select有默认的limit，这个就有可能混淆。
+// 综上，下面的这种事务实现Transaction与单独使用begin等不会混淆，所以tx还是要单独new session
+// https://stackoverflow.com/questions/16184238/database-sql-tx-detecting-commit-or-rollback
+func TestEngineTransaction(t *testing.T) {
+	var conf = AppConf{
+		AppID:      91,
+		AppName:    "dfdfd89fdfd",
+		InsertTime: time.Now(),
+	}
+
+	fn := func(s *Session) (interface{}, error) {
+		res, err := s.Insert(conf)
+		if err != nil {
+			return res, err
+		}
+		conf.AppName = "update 2"
+		res, err = s.Where("app_id = ?", conf.AppID).Update(conf)
+		if err != nil {
+			return res, err
+		}
+		return res, nil
+	}
+	res, err := g.Transaction(fn)
+	if err != nil {
+		t.Errorf("engine tx error:%v", err)
+	}
+	fmt.Println(res)
+}
