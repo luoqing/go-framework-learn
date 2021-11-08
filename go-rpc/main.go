@@ -3,12 +3,12 @@ package main
 import (
 	//	"encoding/json"
 	//	"geerpc/codec"
-	"encoding/json"
+
 	"fmt"
-	"geerpc/codec"
 	"geerpc/server"
 	"log"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -24,6 +24,7 @@ func startServer(addr chan string) {
 }
 
 // day1 with codec--god or json
+/*
 func main() {
 	addr := make(chan string)
 	go startServer(addr)
@@ -64,16 +65,16 @@ func main() {
 		}
 		log.Println("reply:", reply)
 	}
-}
+}*/
 
-/* day2 with client
+// day2 with client
 // 可以指定option，使用不同的codec
 // 封装了read和write，不用考虑读取不完整，或者写入部分
 func main() {
-    log.SetFlags(0)
+	log.SetFlags(0)
 	addr := make(chan string)
 	go startServer(addr)
-    //client, _ := geerpc.Dial("tcp", <-addr)
+	//client, _ := geerpc.Dial("tcp", <-addr)
 	client, _ := Dial("tcp", <-addr)
 	defer func() { _ = client.Close() }()
 
@@ -94,4 +95,3 @@ func main() {
 	}
 	wg.Wait()
 }
-*/
