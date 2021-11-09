@@ -24,6 +24,20 @@ func (call *Call) done() {
 	call.Done <- call
 }
 
+/*
+// req, rsp, opt
+// arg,method,reply,
+ type Client interface {
+     // 发起后端调用
+     Invoke(ctx context.Context, reqbody interface{}, rspbody interface{}, opt ...Option) error
+ }
+*/
+
+// client的options应该有哪些呢?
+// target(ip,port), network(tcp/udp), timeout, codec(SerializationType & CompressType), selector, filters
+// ReqHead, RspHead
+
+
 // Client represents an RPC Client.
 // There may be multiple outstanding Calls associated
 // with a single Client, and a Client may be used by

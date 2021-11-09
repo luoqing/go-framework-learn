@@ -13,6 +13,7 @@ import (
 
 const MagicNumber = 0x3bef5c
 
+// name, address, transport, codec, filters
 type Option struct {
 	MagicNumber int    // MagicNumber marks this's a geerpc request
 	CodecType   string // client may choose different Codec to encode body
@@ -24,6 +25,7 @@ var DefaultOption = &Option{
 }
 
 // Server represents an RPC Server.
+// map[string]Service
 type Server struct{}
 
 // NewServer returns a new Server.
